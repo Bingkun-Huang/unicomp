@@ -203,3 +203,19 @@ conda install -c conda-forge -y mujoco glfw pyopengl
 ## Notes
 - This README documents a minimal, reproducible setup for running the complementarity-based pushing demos.
 - If you later enable additional Siconos modules (e.g., `mechanics`), extra dependencies (Bullet/VTK) will be required.
+
+
+## Citation
+
+If you find this code useful, you can cite our paper:
+
+```bibtex
+@misc{huang2026unifiedcomplementaritybasedapproachrigidbody,
+      title={A Unified Complementarity-based Approach for Rigid-Body Manipulation and Motion Prediction}, 
+      author={Bingkun Huang and Xin Ma and Nilanjan Chakraborty and Riddhiman Laha},
+      year={2026},
+      eprint={2602.04522},
+      archivePrefix={arXiv},
+      primaryClass={cs.RO},
+      url={https://arxiv.org/abs/2602.04522}, 
+}

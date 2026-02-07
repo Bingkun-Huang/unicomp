@@ -152,6 +152,20 @@ cd ~/unicomp
 ```bash
 python3 -m scripts.interact_block_pushing --view --use_tool --realtime
 ```
+After launching, follow these steps:
+
+1. Locate the tool (the green sphere), use left mouse button to rotate the view.
+2. Zoom in with the mouse wheel until you “enter” the green sphere and can see the red sphere (the tool’s target position). Operation in Mujoco check [MuJoCo UI documentation](https://mujoco.readthedocs.io/en/stable/programming/ui.html) for mouse/keyboard controls.
+3. Double-click the red sphere with the left mouse button to set/select the target position.
+4. Hold **Ctrl** and drag with the **right mouse button** to move the sphere, driving the green tool sphere accordingly.
+5. For more details, please refer to the Git section below.
+
+<div align="center">
+  <img src="assets/unicomp_ins.gif" width="480" alt="Demo">
+  <br>
+  <em>Unicomp Interactive Instructions</em>
+</div>
+
 
 ### 6.2 Interactive multi-block pushing
 ```bash

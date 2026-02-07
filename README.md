@@ -1,6 +1,6 @@
 # unicomp
 A Unified Complementarity-based Approach for Rigid-Body Manipulation and Motion Prediction
-
+![Demo](assets/overview.png)
 # Unicomp (compsim) — Setup & Quickstart
 
 This repo contains:

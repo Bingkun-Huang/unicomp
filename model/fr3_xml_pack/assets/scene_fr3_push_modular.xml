@@ -1,0 +1,25 @@
+<mujoco model="fr3_push_modular">
+  <!-- 1) Robot model (full file) -->
+  <include file="fr3.xml"/>
+
+  <!-- 2) Pushed object + ground (provides <asset> and <worldbody>) -->
+  <include file="push_worldbody.xml"/>
+
+  <!-- 3) Obstacles + EE target (provides <worldbody>) -->
+  <include file="obstacles_worldbody.xml"/>
+
+  <statistic center="0.4 0 0.3" extent="1.2"/>
+
+  <visual>
+    <headlight diffuse="0.6 0.6 0.6" ambient="0.3 0.3 0.3" specular="0 0 0"/>
+    <rgba haze="0.15 0.25 0.35 1"/>
+    <global azimuth="120" elevation="-20"/>
+  </visual>
+
+  <!-- MuJoCo internal timestep can be smaller; controller/object update dt is set in Python (e.g. --dt 0.01) -->
+  <option integrator="implicitfast" timestep="0.002"/>
+
+  <default>
+    <geom friction="0.5 0.005 0.0001" density="800"/>
+  </default>
+</mujoco>

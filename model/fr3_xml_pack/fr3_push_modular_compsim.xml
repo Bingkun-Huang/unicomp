@@ -1,0 +1,23 @@
+<mujoco model="fr3_push_modular_compsim">
+  <include file="fr3.xml"/>
+  <include file="t_block_optimized.xml"/>
+  <include file="table_worldbody.xml"/>
+  <include file="obstacles_worldbody_fixed.xml"/>
+
+
+  <worldbody>
+    <!-- softer key -->
+    <light name="key"  pos="0 0 4" dir="0 -0 -2" directional="true"
+          diffuse="0.8 0.8 0.8"
+          ambient="0.08 0.08 0.08"
+          specular="0.12 0.12 0.12"/>
+
+  </worldbody>
+
+  <visual>
+  <quality shadowsize="0"/>
+  </visual>
+
+
+  <option integrator="implicitfast" timestep="0.002"/>
+</mujoco>

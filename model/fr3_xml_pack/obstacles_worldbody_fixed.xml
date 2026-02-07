@@ -1,0 +1,67 @@
+<mujocoinclude>
+<worldbody>
+  <!-- End-effector target (mocap): drag this in viewer -->
+  <body name="ee_target" mocap="true" pos="0.55 0.00 0.15">
+    <geom type="sphere" size="0.02" rgba="0 1 1 0.8" contype="0" conaffinity="0"/>
+  </body>
+
+  <!-- Visual marker for the EE "tool sphere" (mocap, kinematic) -->
+  <body name="ee_tool_vis" mocap="true" pos="0.55 0.00 0.15">
+    <geom type="sphere" size="0.03" rgba="0.2 0.9 0.2 0.6" contype="0" conaffinity="0"/>
+  </body>
+
+  <!-- Visual marker: tool contact point -->
+  <body name="tool_contact_vis" mocap="true" pos="1 1 1">
+    <geom type="sphere" size="0.01" rgba="0.2 0.4 1 0.8" contype="0" conaffinity="0"/>
+  </body>
+
+  <!-- Visual marker: ground ECP -->
+  <body name="ground_ecp_vis" mocap="true" pos="1 1 1">
+    <geom type="sphere" size="0.01" rgba="1 0.6 0.1 0.8" contype="0" conaffinity="0"/>
+  </body>
+
+  <!-- Dynamic obstacles (mocap): avoidance is via complementarity in Python -->
+  <body name="obst0" mocap="true" pos="0.25 0.08 0.4">
+    <geom name="obst_geom0" type="sphere" size="0.03"
+          rgba="0 0 1 1" contype="0" conaffinity="0"/>
+  </body>
+
+  <body name="obst1" mocap="true" pos="0.25 -0.08 0.4">
+    <geom name="obst_geom1" type="sphere" size="0.03"
+          rgba="0 0 1 1" contype="0" conaffinity="0"/>
+  </body>
+
+  <body name="obst2" mocap="true" pos="0.25 -0.0 0.4">
+    <geom name="obst_geom2" type="sphere" size="0.03"
+          rgba="0 0 1 1" contype="0" conaffinity="0"/>
+  </body>
+
+
+    <body name="obst3" mocap="true" pos="0.25 0.08 0.80">
+    <geom name="obst_geom3" type="sphere" size="0.03"
+          rgba="0 0 1 1" contype="0" conaffinity="0"/>
+  </body>
+
+      <body name="obst4" mocap="true" pos="0.25 -0.0 0.80">
+    <geom name="obst_geom4" type="sphere" size="0.03"
+          rgba="0 0 1 1" contype="0" conaffinity="0"/>
+  </body>
+
+        <body name="obst5" mocap="true" pos="0.25 -0.08 0.80">
+    <geom name="obst_geom5" type="sphere" size="0.03"
+          rgba="0 0 1 1" contype="0" conaffinity="0"/>
+  </body>
+        <body name="obst6" mocap="true" pos="0.25 -0.0 0.48">
+    <geom name="obst_geom6" type="sphere" size="0.03"
+          rgba="0 0 1 1" contype="0" conaffinity="0"/>
+  </body>
+
+<!-- 
+        <body name="obst6" mocap="true" pos="0.25 0.08 0.80">
+    <geom name="obst_geom6" type="sphere" size="0.03"
+          rgba="0 0 1 1" contype="0" conaffinity="0"/>
+  </body> -->
+
+
+</worldbody>
+</mujocoinclude>

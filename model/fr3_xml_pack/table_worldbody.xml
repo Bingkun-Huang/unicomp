@@ -1,0 +1,25 @@
+<mujoco model="table_worldbody">
+  <worldbody>
+    <!-- Simple table for visualization. -->
+    <!-- NOTE: compsim ground MCP assumes the support plane is z=0.
+         This table is placed so its top is at z=0, but the block/contact model is still the plane.
+         If you later want real table contact, shift everything or change the ground model height. -->
+    <body name="table" pos="0 0 0">
+      <!-- Top: thickness 0.04, top surface at z=0 -->
+      <geom name="table_top" type="box" size="0.3 0.3 0.02" pos="0.55 0.00 0.28"
+            rgba="0.55 0.40 0.25 1" contype="0" conaffinity="0"/>
+      <geom name="table_leg_fl" type="box" size="0.03 0.03 0.20" pos="0.55 0.00 0.08"
+            rgba="0.45 0.33 0.20 1" contype="0" conaffinity="0"/>      
+
+      <!-- Legs
+      <geom name="table_leg_fl" type="box" size="0.03 0.03 0.20" pos="-0.17 -0.33 -0.24"
+            rgba="0.45 0.33 0.20 1" contype="0" conaffinity="0"/>
+      <geom name="table_leg_fr" type="box" size="0.03 0.03 0.20" pos="-0.17  0.33 -0.24"
+            rgba="0.45 0.33 0.20 1" contype="0" conaffinity="0"/>
+      <geom name="table_leg_rl" type="box" size="0.03 0.03 0.20" pos=" 0.97 -0.33 -0.24"
+            rgba="0.45 0.33 0.20 1" contype="0" conaffinity="0"/>
+      <geom name="table_leg_rr" type="box" size="0.03 0.03 0.20" pos=" 0.97  0.33 -0.24"
+            rgba="0.45 0.33 0.20 1" contype="0" conaffinity="0"/> -->
+    </body>
+  </worldbody>
+</mujoco>

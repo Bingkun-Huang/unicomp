@@ -1,0 +1,31 @@
+<asset>
+  <texture type="skybox" builtin="gradient" rgb1="0.3 0.5 0.7" rgb2="0 0 0" width="512" height="3072"/>
+  <texture type="2d" name="groundplane" builtin="checker" mark="edge"
+           rgb1="0.2 0.3 0.4" rgb2="0.1 0.2 0.3" markrgb="0.8 0.8 0.8"
+           width="300" height="300"/>
+  <material name="groundplane" texture="groundplane" texuniform="true"
+            texrepeat="5 5" reflectance="0.2"/>
+</asset>
+
+<worldbody>
+  <light pos="0 0 1.5" dir="0 0 -1" directional="true"/>
+  <!-- Visualization-only floor: MuJoCo contacts disabled (we do pushing/ground via our own complementarity model) -->
+  <geom name="floor" size="0 0 0.05" type="plane" material="groundplane" contype="0" conaffinity="0"/>
+
+  <!-- The pushed object: T-block built from boxes (MUST be box geoms for v076 corner sampling) -->
+  <body name="T_siconos" pos="0.70 0.00 0.02">
+    <freejoint name="root_siconos"/>
+
+    <!-- stem -->
+    <geom name="T_stem_s" type="box" size="0.02 0.02 0.15" pos="0 0 -0.05"
+          rgba="0.2 0.4 0.8 1" contype="0" conaffinity="0"/>
+
+    <!-- top bar 1 -->
+    <geom name="T_top_s" type="box" size="0.10 0.02 0.02" pos="0 0 0.12"
+          rgba="0.8 0.2 0.2 1" contype="0" conaffinity="0"/>
+
+    <!-- top bar 2 (perpendicular) -->
+    <geom name="T_top_ss" type="box" size="0.02 0.10 0.02" pos="0 0 -0.12"
+          rgba="0.8 0.2 0.2 1" contype="0" conaffinity="0"/>
+  </body>
+</worldbody>

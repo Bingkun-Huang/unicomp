@@ -1,0 +1,101 @@
+<mujoco model="t_block_dual">
+  <asset>
+    <!-- Checker texture (dark gray / light gray) -->
+    <texture name="tex_floor_checker" type="2d" builtin="checker"
+             width="512" height="512"
+             rgb1="0.90 0.90 0.90" rgb2="0.78 0.78 0.78"/>
+
+    <!-- Material using that texture -->
+    <material name="mat_floor_checker"
+              texture="tex_floor_checker"
+              texrepeat="20 20" texuniform="true"
+              reflectance="0.05" shininess="0.2" specular="0.1"
+              rgba="1 1 1 1"/>
+  </asset>
+
+  <compiler angle="radian"/>
+  <option timestep="0.01"/>
+  <default>
+    <geom friction="0.5 0.005 0.0001" density="1000"/>
+  </default>
+
+  <worldbody>
+    <light name="scene_light" pos="0 0 1.5" dir="0 0 -1" directional="true"/>
+    <geom name="floor" type="plane" size="5 5 0.1" pos="0 0 0"
+          material="mat_floor_checker" rgba="1 1 1 1"/>
+
+    <!-- =========================
+         "口" frame parameters (conceptual)
+         outer_half = 0.10   -> outer size ~ 0.20 x 0.20
+         thick      = 0.02   -> frame thickness
+         height     = 0.04   -> z half-size = 0.02
+         ========================= -->
+
+    <!-- Visible body for your siconos-driven state -->
+    <body name="T_siconos" pos="0 0 0.3">
+      <freejoint name="root_siconos"/>
+
+      <!-- Top bar -->
+      <geom name="K_top_s" type="box"
+            size="0.10 0.02 0.02"
+            pos="0 0.08 0"
+            rgba="0.8 0.2 0.2 1"
+            contype="0" conaffinity="0"/>
+
+      <!-- Bottom bar -->
+      <geom name="K_bottom_s" type="box"
+            size="0.10 0.02 0.02"
+            pos="0 -0.08 0"
+            rgba="0.8 0.2 0.2 1"
+            contype="0" conaffinity="0"/>
+
+      <!-- Left bar -->
+      <geom name="K_left_s" type="box"
+            size="0.02 0.08 0.02"
+            pos="-0.08 0 0"
+            rgba="0.8 0.2 0.2 1"
+            contype="0" conaffinity="0"/>
+
+      <!-- Right bar -->
+      <geom name="K_right_s" type="box"
+            size="0.02 0.08 0.02"
+            pos="0.08 0 0"
+            rgba="0.8 0.2 0.2 1"
+            contype="0" conaffinity="0"/>
+    </body>
+
+    <!-- Invisible duplicate body (for mujoco visual sync / debug) -->
+    <body name="T_mujoco" pos="0 0 0.3">
+      <freejoint name="root_mujoco"/>
+
+      <!-- Top bar -->
+      <geom name="K_top_m" type="box"
+            size="0.10 0.02 0.02"
+            pos="0 0.08 0"
+            rgba="0.8 0.2 0.2 0.0"/>
+
+      <!-- Bottom bar -->
+      <geom name="K_bottom_m" type="box"
+            size="0.10 0.02 0.02"
+            pos="0 -0.08 0"
+            rgba="0.8 0.2 0.2 0.0"/>
+
+      <!-- Left bar -->
+      <geom name="K_left_m" type="box"
+            size="0.02 0.08 0.02"
+            pos="-0.08 0 0"
+            rgba="0.8 0.2 0.2 0.0"/>
+
+      <!-- Right bar -->
+      <geom name="K_right_m" type="box"
+            size="0.02 0.08 0.02"
+            pos="0.08 0 0"
+            rgba="0.8 0.2 0.2 0.0"/>
+    </body>
+
+    <body name="target_mocap" mocap="true" pos="0.08 -0.35 0.08">
+      <geom type="sphere" size="0.005" rgba="1 0 0 0.4" contype="0" conaffinity="0"/>
+    </body>
+
+  </worldbody>
+</mujoco>

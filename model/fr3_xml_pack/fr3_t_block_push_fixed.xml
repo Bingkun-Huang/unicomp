@@ -1,0 +1,27 @@
+<?xml version="1.0" ?>
+<mujoco model="fr3_t_block_push">
+  <!-- FR3 robot -->
+  <include file="fr3.xml"/>
+  
+  <!-- T-block to push -->
+  <include file="t_block_optimized.xml"/>
+  
+  <!-- Table ground -->
+  <include file="table_worldbody.xml"/>
+  
+  <!-- Obstacles -->
+  <include file="obstacles_worldbody_fixed.xml"/>
+
+  <worldbody>
+    <light name="key" pos="0 0 4" dir="0 -0 -2" directional="true"
+           diffuse="0.8 0.8 0.8"
+           ambient="0.08 0.08 0.08"
+           specular="0.12 0.12 0.12"/>
+  </worldbody>
+
+  <visual>
+    <quality shadowsize="0"/>
+  </visual>
+
+  <option integrator="implicitfast" timestep="0.002"/>
+</mujoco>

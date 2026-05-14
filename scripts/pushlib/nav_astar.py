@@ -11,6 +11,9 @@ import numpy as np
 
 import heapq
 from dataclasses import field
+from typing import Optional, Tuple
+
+from .geom import kinematic_step_towards
 
 # ---- A* params (NAV only) ----
 ASTAR_RES = 0.006
@@ -21,6 +24,7 @@ ASTAR_REPLAN_DIST = 0.03
 ASTAR_REPLAN_EVERY = 0.60
 ASTAR_GOAL_NUDGE_MAX = 0.08
 ASTAR_PROJECT_EPS = 1e-4
+DEBUG_NAV = False
 
 
 @dataclass

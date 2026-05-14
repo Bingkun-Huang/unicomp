@@ -6,7 +6,7 @@ A Unified Complementarity-based Approach for Rigid-Body Manipulation and Motion 
 This repo contains:
 - `compsim/` — complementarity-based pushing simulation code
 - `model/` — MuJoCo models/assets
-- `scripts/` — runnable demos (executed with `python -m scripts...`)
+- `scripts/` — runnable demos (run directly as `.py` scripts from the repo root)
 
 Recommended conda environment name: **`unicomp`**.
 
@@ -148,9 +148,49 @@ conda activate unicomp
 cd ~/unicomp
 ```
 
-### 6.1 Interactive single-block pushing (with tool)
+### 6.1 FR3 waypoint pushing (current mainline)
+
+This is the recommended FR3 entry point. It keeps the mature compsim waypoint/contact
+pipeline and adds FR3 as a kinematic `tool_tip` follower.
+
 ```bash
-python3 -m scripts.interact_block_pushing --view --use_tool --realtime
+python3 scripts/fr3_waypoint_pushing.py \
+  --xml model/fr3_xml_pack/fr3_push_modular_compsim.xml \
+  --body T_siconos \
+  --live_view \
+  --fr3_enable_ik \
+  --fr3_physical_tool
+```
+
+Current logic:
+
+```text
+waypoint/contact state machine
+-> FR3 IK / tool_tip tracking
+-> compsim tool-block impulse
+-> compsim block dynamics + table support
+-> MuJoCo live visualization
+```
+
+Useful variants:
+
+```bash
+# Faster headless run
+python3 scripts/fr3_waypoint_pushing.py \
+  --xml model/fr3_xml_pack/fr3_push_modular_compsim.xml \
+  --body T_siconos
+
+# Visual FR3 follower only; contact uses planner tool directly
+python3 scripts/fr3_waypoint_pushing.py \
+  --xml model/fr3_xml_pack/fr3_push_modular_compsim.xml \
+  --body T_siconos \
+  --live_view \
+  --fr3_enable_ik
+```
+
+### 6.2 Interactive single-block pushing (with tool)
+```bash
+python3 scripts/interact_block_pushing.py --view --use_tool --realtime
 ```
 After launching, follow these steps:
 
@@ -167,14 +207,14 @@ After launching, follow these steps:
 </div>
 
 
-### 6.2 Interactive multi-block pushing
+### 6.3 Interactive multi-block pushing
 ```bash
-python3 -m scripts.interact_multi_blocks_pushing --view --realtime
+python3 scripts/interact_multi_blocks_pushing.py --view --realtime
 ```
 
-### 6.3 Waypoints block pushing (multiple viewers)
+### 6.4 Waypoints block pushing (without FR3)
 ```bash
-python3 -m scripts.waypoints_block_pushing --view --view_realtime --live_view
+python3 scripts/waypoints_block_pushing.py --view --view_realtime --live_view
 ```
 
 ---

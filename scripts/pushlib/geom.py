@@ -3,10 +3,25 @@ from __future__ import annotations
 
 import math
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, List, Optional, Tuple
 
 import numpy as np
 import mujoco
+
+from compsim.tool_contact import closest_point_on_tblock_surface_world
+
+# Defaults mirrored from state_machine.py. Keep geom.py self-contained because
+# importing state_machine here would create a circular dependency.
+CONTACT_MIN_ALIGN = 0.15
+CONTACT_HYSTERESIS_BONUS = 0.20
+POS_YAW_BLEND_DIST = 0.10
+W_POS_FAR, W_YAW_FAR = 1.0, 0.2
+W_POS_NEAR, W_YAW_NEAR = 0.4, 1.0
+YAW_ERR_ACTIVE = np.deg2rad(1.0)
+YAW_ERR_REF = np.deg2rad(30.0)
+TORQUE_SCORE_GAIN = 20.0
+LEVER_SCORE_GAIN = 5.0
+MIN_ALIGN_RELAX_YAW = -0.10
 
 def quat_normalize_wxyz(q: np.ndarray) -> np.ndarray:
     q = np.asarray(q, dtype=np.float64).reshape(4,)
@@ -232,16 +247,20 @@ def build_strict_plot_surface_samples_comframe(
     xml_path: str,
     q0_body_wxyz: np.ndarray,
     body_name: str = "T_siconos",
+    spacing: float = 0.012,
+    side_normal_z_max: float = 0.35,
+    internal_eps: float = 8e-5,
+    max_points: int = 700,
 ) -> Tuple[np.ndarray, SurfaceSamples]:
     ipos_body, geoms_desc = load_mujoco_body_geoms_desc(xml_path, body_name=body_name)
 
     pts_body_origin, ns_body = build_union_side_surface_points_normals_bodyframe(
         geoms_desc=geoms_desc,
         q0_body_wxyz=q0_body_wxyz,
-        spacing=float(FACE_SAMPLE_SPACING),
-        side_normal_z_max=float(SIDE_NORMAL_Z_MAX),
-        internal_eps=float(FACE_INTERNAL_EPS),
-        max_points=int(MAX_FACE_POINTS),
+        spacing=float(spacing),
+        side_normal_z_max=float(side_normal_z_max),
+        internal_eps=float(internal_eps),
+        max_points=int(max_points),
     )
 
     pts_local_com = pts_body_origin - ipos_body.reshape(1, 3)
@@ -387,10 +406,7 @@ def select_contact_from_surface_samples_translation_yaw(
 
 def enforce_min_sdf_distance(x_des: np.ndarray, q_block: np.ndarray, d_min: float) -> np.ndarray:
     x_des = np.asarray(x_des, dtype=np.float64).reshape(3,)
-    if not hasattr(sim, "closest_point_on_tblock_surface_world"):
-        return x_des
-
-    a, sdf = sim.closest_point_on_tblock_surface_world(x_des, q_block)
+    a, sdf = closest_point_on_tblock_surface_world(x_des, q_block)
     a = np.asarray(a, dtype=np.float64).reshape(3,)
     d = float(sdf)
 

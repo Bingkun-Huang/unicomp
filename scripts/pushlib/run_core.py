@@ -62,6 +62,39 @@ def main(
     parser.add_argument("--out_npz", type=str, default=None, help="Output NPZ path.")
     parser.add_argument("--render_fps", type=float, default=None, help="Playback render FPS.")
     parser.add_argument("--playback_speed", type=float, default=None, help="Playback speed multiplier.")
+    parser.add_argument(
+        "--fr3_enable_ik",
+        action="store_true",
+        help="In live_view, make the FR3 end-effector visually follow the planner tool.",
+    )
+    parser.add_argument("--fr3_ee_site", type=str, default="tool_tip", help="FR3 end-effector site name.")
+    parser.add_argument(
+        "--fr3_joint_names",
+        type=str,
+        default="fr3_joint1,fr3_joint2,fr3_joint3,fr3_joint4,fr3_joint5,fr3_joint6,fr3_joint7",
+        help="Comma-separated FR3 joint names.",
+    )
+    parser.add_argument("--fr3_ik_kp", type=float, default=50.0, help="FR3 visual follower position gain.")
+    parser.add_argument("--fr3_ik_damping", type=float, default=1e-3, help="FR3 DLS IK damping.")
+    parser.add_argument("--fr3_ik_dq_max", type=float, default=1.0, help="FR3 max joint velocity command.")
+    parser.add_argument("--fr3_ee_vmax", type=float, default=0.8, help="FR3 max end-effector tracking speed.")
+    parser.add_argument(
+        "--fr3_physical_tool",
+        action="store_true",
+        help="Use actual FR3 tool_tip position/velocity as the compsim pushing tool.",
+    )
+    parser.add_argument(
+        "--support_z",
+        type=float,
+        default=None,
+        help="Support plane height for compsim. Default: infer from --support_geom, fallback 0.",
+    )
+    parser.add_argument(
+        "--support_geom",
+        type=str,
+        default="table_top",
+        help="Geom used to infer support plane height when --support_z is omitted.",
+    )
 
     args = parser.parse_args(argv)
 
@@ -84,6 +117,13 @@ def main(
             elif hasattr(_compsim, "init"):
                 # fallback for older API
                 _compsim.init(args.xml, body=args.body)
+            try:
+                import scripts.pushlib.state_machine as _state_machine
+                _state_machine._LOCAL_POINTS_REF = None
+                import compsim.samples as _samples
+                _samples._local_points_ref = None
+            except Exception:
+                pass
         except ImportError:
             raise RuntimeError(
                 "Simulator 'compsim' selected but cannot import compsim. "
@@ -98,6 +138,16 @@ def main(
         BODY_NAME=(args.body if args.body is not None else DEFAULT_BODY_NAME),
         STEPS=(args.steps if args.steps is not None else DEFAULT_STEPS),
         LIVE_VIEW=args.live_view,
+        FR3_ENABLE_IK=bool(args.fr3_enable_ik),
+        FR3_EE_SITE=str(args.fr3_ee_site),
+        FR3_JOINT_NAMES=tuple(name.strip() for name in str(args.fr3_joint_names).split(",") if name.strip()),
+        FR3_IK_KP=float(args.fr3_ik_kp),
+        FR3_IK_DAMPING=float(args.fr3_ik_damping),
+        FR3_IK_DQ_MAX=float(args.fr3_ik_dq_max),
+        FR3_EE_VMAX=float(args.fr3_ee_vmax),
+        FR3_PHYSICAL_TOOL=bool(args.fr3_physical_tool),
+        SUPPORT_Z=args.support_z,
+        SUPPORT_GEOM_NAME=str(args.support_geom),
     )
 
     # Optional save

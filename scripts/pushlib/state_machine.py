@@ -69,6 +69,7 @@ from compsim.tool_contact import closest_point_on_tblock_surface_world as _close
 from compsim.tool_contact import inertia_world_from_body_diag as _inertia_world_from_body_diag
 from compsim.math3d import quat_from_omega_world_np as _quat_from_omega_world_np
 from compsim.math3d import quat_mul_wxyz_np as _quat_mul_wxyz_np
+from .fr3_follower import DEFAULT_FR3_JOINT_NAMES, Fr3DlsIkFollower, Fr3FollowerConfig
 
 _LOCAL_POINTS_REF = None
 
@@ -195,8 +196,7 @@ except Exception:
 
 DEFAULT_WAYPOINTS = [
     {"idx": 0, "p": [0.60, 0.00, 0.02], "q": [0.707, 0.707, 0.0, 0.0]},   # initial
-    {"idx": 1, "p": [0.70, 0.50, 0.02], "q": [0.50, 0.50, 0.5, 0.5]},    # target (planar translation + yaw)
-    {"idx": 2, "p": [0.40, -0.25, 0.02], "q": [0.707, 0.707, 0.0, 0.0]},   # another target
+    {"idx": 1, "p": [0.40, -0.25, 0.02], "q": [0.707, 0.707, 0.0, 0.0]},   # final target
 ]
 
 DT = 0.002
@@ -326,6 +326,20 @@ LIVE_VIEW = False
 LIVE_VIEW_STRIDE = 5
 LIVE_VIEW_REALTIME = False
 LIVE_TARGET_MOCAP = "target_mocap"  # drive this mocap marker to the tool position
+SUPPORT_GEOM_NAME = "table_top"
+SUPPORT_Z = None  # None means infer from SUPPORT_GEOM_NAME, fallback to 0.0.
+
+# FR3 visual follower. The planner tool still owns compsim pushing physics; the
+# robot only tracks the planner tool in live_view.
+FR3_ENABLE_IK = False
+FR3_EE_SITE = "tool_tip"
+FR3_JOINT_NAMES = DEFAULT_FR3_JOINT_NAMES
+FR3_IK_KP = 50.0
+FR3_IK_DAMPING = 1e-3
+FR3_IK_DQ_MAX = 1.0
+FR3_EE_VMAX = 0.8
+FR3_HOME_QPOS = (0.0, -0.8, 0.0, -2.35, 0.0, 1.57, 0.78)
+FR3_PHYSICAL_TOOL = False
 
 # IMPORTANT: this is used only for LIVE_VIEW. main() will overwrite it from --body
 BODY_NAME = "T_siconos"
@@ -499,6 +513,7 @@ def _scene_add_polyline_capsules(
 
 # ---- split imports ----
 from .geom import *  # noqa: F401,F403
+from .geom import _quat_wxyz_to_rotmat
 from .nav_astar import *  # noqa: F401,F403
 from .viz_playback import *  # noqa: F401,F403
 
@@ -518,6 +533,45 @@ def update_penetration_mm_band(pen: float, Fn: float) -> float:
     return pen
 
 
+def infer_support_z_from_xml(xml_path: str | None, support_geom_name: str = SUPPORT_GEOM_NAME) -> float:
+    """Infer the support plane height from a MuJoCo geom.
+
+    For the FR3 modular scene, table_worldbody.xml defines table_top as a box
+    centered at z=0.28 with half-height 0.02, so the support plane is z=0.30.
+    """
+    if not xml_path:
+        return 0.0
+
+    try:
+        model = mujoco.MjModel.from_xml_path(str(xml_path))
+        data = mujoco.MjData(model)
+        mujoco.mj_forward(model, data)
+        gid = mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_GEOM, str(support_geom_name))
+        if gid < 0:
+            return 0.0
+
+        z_center = float(data.geom_xpos[gid, 2])
+        geom_type = int(model.geom_type[gid])
+        if geom_type == int(mujoco.mjtGeom.mjGEOM_BOX):
+            return z_center + float(model.geom_size[gid, 2])
+        if geom_type == int(mujoco.mjtGeom.mjGEOM_PLANE):
+            return z_center
+        return z_center + float(model.geom_rbound[gid])
+    except Exception:
+        return 0.0
+
+
+def lift_waypoints_to_support(wp_p: np.ndarray, support_z: float) -> np.ndarray:
+    """Treat waypoint z values below the table as heights relative to support."""
+    wp_p = np.asarray(wp_p, dtype=np.float64).copy()
+    support_z = float(support_z)
+    if abs(support_z) < 1e-12:
+        return wp_p
+    if wp_p.shape[0] > 0 and float(np.max(wp_p[:, 2])) < support_z - 1e-6:
+        wp_p[:, 2] += support_z
+    return wp_p
+
+
 # ============================================================
 
 
@@ -531,7 +585,22 @@ def run_push_minimal(
     SAVE_NPZ=False,
     OUT_NPZ=OUT_NPZ,
     VIEW=False,
+    FR3_ENABLE_IK=FR3_ENABLE_IK,
+    FR3_EE_SITE=FR3_EE_SITE,
+    FR3_JOINT_NAMES=FR3_JOINT_NAMES,
+    FR3_IK_KP=FR3_IK_KP,
+    FR3_IK_DAMPING=FR3_IK_DAMPING,
+    FR3_IK_DQ_MAX=FR3_IK_DQ_MAX,
+    FR3_EE_VMAX=FR3_EE_VMAX,
+    FR3_HOME_QPOS=FR3_HOME_QPOS,
+    FR3_PHYSICAL_TOOL=FR3_PHYSICAL_TOOL,
+    SUPPORT_Z=SUPPORT_Z,
+    SUPPORT_GEOM_NAME=SUPPORT_GEOM_NAME,
 ):
+    global sim
+    if not isinstance(sim, _SimCompat):
+        sim = _SimCompat()
+
     # Allow the caller (e.g. scripts/push_waypoints_compsim_live.py) to provide custom waypoints
     if WAYPOINTS is None:
         WAYPOINTS = DEFAULT_WAYPOINTS
@@ -541,16 +610,30 @@ def run_push_minimal(
         sim.XML_PATH = XML_PATH
     except Exception:
         pass
+    try:
+        sim.BODY_NAME = BODY_NAME
+    except Exception:
+        pass
 
     PN_SUPPORT_THRESH = 1e-9  # support threshold for projection
 
     print("[Minimal] Using simulator module:", sim.__name__)
     print(f"[Minimal] total_mass = {float(sim.total_mass):.6f}")
 
+    support_z = (
+        infer_support_z_from_xml(XML_PATH, support_geom_name=str(SUPPORT_GEOM_NAME))
+        if SUPPORT_Z is None
+        else float(SUPPORT_Z)
+    )
+    print(f"[Support] support_z={support_z:.6f} geom={SUPPORT_GEOM_NAME}")
+
     if len(WAYPOINTS) < 2:
         raise ValueError("Need at least 2 waypoints.")
     wp_t = np.array([float(w["idx"]) for w in WAYPOINTS], dtype=np.float64)
-    wp_p = np.array([w["p"] for w in WAYPOINTS], dtype=np.float64).reshape(-1, 3)
+    wp_p_raw = np.array([w["p"] for w in WAYPOINTS], dtype=np.float64).reshape(-1, 3)
+    wp_p = lift_waypoints_to_support(wp_p_raw, support_z)
+    if not np.allclose(wp_p[:, 2], wp_p_raw[:, 2]):
+        print(f"[Support] lifted waypoint z by {support_z:.6f} to use table as ground")
     wp_q = np.array([quat_normalize_wxyz(w["q"]) for w in WAYPOINTS], dtype=np.float64).reshape(-1, 4)
     wp_q = enforce_quat_sign_continuity_wxyz(wp_q)
 
@@ -574,6 +657,7 @@ def run_push_minimal(
         contact_eps=1e-6,
         proj_tol=1e-6,
         ground_enable_margin=2e-3,
+        support_z=float(support_z),
     )
     simobj.ecp_xy_reg = 1e-2
     simobj.jac_reg = 1e-8
@@ -601,6 +685,10 @@ def run_push_minimal(
         xml_path=xml_path,
         q0_body_wxyz=q0_body_wxyz,
         body_name="T_siconos",
+        spacing=float(FACE_SAMPLE_SPACING),
+        side_normal_z_max=float(SIDE_NORMAL_Z_MAX),
+        internal_eps=float(FACE_INTERNAL_EPS),
+        max_points=int(MAX_FACE_POINTS),
     )
     if surface_samples.p_local_com.shape[0] == 0:
         raise RuntimeError("Surface samples are empty. Check FACE_SAMPLE_SPACING / SIDE_NORMAL_Z_MAX / model geoms.")
@@ -619,6 +707,9 @@ def run_push_minimal(
     qposadr_vis = None
     target_mocap_id = -1
     last_view_t = time.perf_counter()
+    fr3_ik: Fr3DlsIkFollower | None = None
+    fr3_last_err = np.nan
+    fr3_tool_prev: np.ndarray | None = None
 
     # store ipos_body from the visualization MJCF (needed to convert COM-qpos -> body-origin qpos)
     ipos_body_vis = None
@@ -637,6 +728,23 @@ def run_push_minimal(
             m_vis = mujoco.MjModel.from_xml_path(XML_PATH)
             d_vis = mujoco.MjData(m_vis)
             _disable_all_contacts(m_vis)
+
+            if FR3_ENABLE_IK:
+                try:
+                    fr3_config = Fr3FollowerConfig(
+                        ee_site=str(FR3_EE_SITE),
+                        joint_names=tuple(FR3_JOINT_NAMES),
+                        kp=float(FR3_IK_KP),
+                        damping=float(FR3_IK_DAMPING),
+                        dq_max=float(FR3_IK_DQ_MAX),
+                        ee_vmax=float(FR3_EE_VMAX),
+                        q_home=None if FR3_HOME_QPOS is None else tuple(FR3_HOME_QPOS),
+                    )
+                    fr3_ik = Fr3DlsIkFollower(m_vis, d_vis, fr3_config)
+                    print(f"[fr3] IK follower enabled: site={FR3_EE_SITE} joints={len(fr3_ik.joint_names)}")
+                except Exception as e:
+                    print(f"[fr3] IK follower disabled: {e}")
+                    fr3_ik = None
 
             # body + freejoint address
             qposadr_vis = _find_freejoint_qposadr(m_vis, BODY_NAME)
@@ -719,6 +827,12 @@ def run_push_minimal(
             except Exception:
                 pass
 
+            if bool(FR3_PHYSICAL_TOOL) and fr3_ik is not None:
+                tool_pos = fr3_ik.site_pos()
+                tool_vel = np.zeros(3, dtype=np.float64)
+                fr3_tool_prev = tool_pos.copy()
+                print("[fr3] physical tool enabled: compsim uses tool_tip position/velocity")
+
         except Exception as e:
             print(f"[live_view] disabled due to error: {e}")
             viewer = None
@@ -794,14 +908,18 @@ def run_push_minimal(
         q_goal = wp_q[goal_idx].copy()
         z_tool = float(p_goal[2])
 
+        tool_sense_pos = tool_pos.copy()
+        if bool(FR3_PHYSICAL_TOOL) and fr3_ik is not None:
+            tool_sense_pos = fr3_ik.site_pos()
+
         # gap at START
         if hasattr(sim, "closest_point_on_tblock_surface_world"):
-            _, sdf_prev = sim.closest_point_on_tblock_surface_world(tool_pos, q)
+            _, sdf_prev = sim.closest_point_on_tblock_surface_world(tool_sense_pos, q)
             sdf_prev = float(sdf_prev)
         else:
             sdf_prev = 1e9
         gap_prev = float(sdf_prev) - float(TOOL_RADIUS)
-        tool_pos_prev = tool_pos.copy()
+        tool_pos_prev = tool_sense_pos.copy()
 
         # errors
         e_p_xy = (p_goal[0:2] - q[0:2])
@@ -984,6 +1102,16 @@ def run_push_minimal(
         tool_vel_free = (tool_pos_next - tool_pos) / float(DT)
         tool_vel_free[2] = 0.0
 
+        tool_pos_contact = tool_pos.copy()
+        tool_vel_contact = tool_vel_free.copy()
+        if bool(FR3_PHYSICAL_TOOL) and fr3_ik is not None:
+            prev_tip = fr3_tool_prev.copy() if fr3_tool_prev is not None else fr3_ik.site_pos()
+            fr3_last_err = fr3_ik.step(tool_pos_next, float(DT))
+            tip_pos = fr3_ik.site_pos()
+            tool_pos_contact = tip_pos
+            tool_vel_contact = (tip_pos - prev_tip) / float(DT)
+            fr3_tool_prev = tip_pos.copy()
+
         # ground solve
         f_ext = np.zeros(6, dtype=np.float64)
         f_ext[2] += -9.81 * float(sim.total_mass)
@@ -1004,8 +1132,8 @@ def run_push_minimal(
         p_lin, a_c, n_used, _gap_unused = sim.compute_tool_block_impulse(
             q_block=q,
             v_block6=v_ground,
-            tool_pos=tool_pos,
-            tool_vel=tool_vel_free,
+            tool_pos=tool_pos_contact,
+            tool_vel=tool_vel_contact,
             tool_radius=float(TOOL_RADIUS),
             tool_mu=float(TOOL_MU),
             dt=float(DT),
@@ -1026,8 +1154,8 @@ def run_push_minimal(
             contact_pt=None if a_c is None else np.asarray(a_c, dtype=np.float64),
             normal=np.asarray(n_c, dtype=np.float64),
             gap=float(_gap_unused),
-            tool_pos=np.asarray(tool_pos, dtype=np.float64),
-            tool_vel=np.asarray(tool_vel_free, dtype=np.float64),
+            tool_pos=np.asarray(tool_pos_contact, dtype=np.float64),
+            tool_vel=np.asarray(tool_vel_contact, dtype=np.float64),
         )
 
         pn_est = 0.0
@@ -1063,8 +1191,12 @@ def run_push_minimal(
         q_next = np.hstack([pos_next, quat_next])
         v_next2 = v_next.copy()
 
-        tool_pos = tool_pos_next.copy()
-        tool_vel = tool_vel_next.copy()
+        if bool(FR3_PHYSICAL_TOOL) and fr3_ik is not None:
+            tool_pos = tool_pos_contact.copy()
+            tool_vel = tool_vel_contact.copy()
+        else:
+            tool_pos = tool_pos_next.copy()
+            tool_vel = tool_vel_next.copy()
 
         q_next, v_next2, min_z, _ = sim.project_to_ground_and_damp(
             q_next,
@@ -1073,6 +1205,7 @@ def run_push_minimal(
             sim.local_points_ref,
             pn_ground=float(pn_ground),
             pn_support_thresh=float(PN_SUPPORT_THRESH),
+            support_z=float(support_z),
         )
 
         q, v = q_next, v_next2
@@ -1103,8 +1236,14 @@ def run_push_minimal(
 
                     d_vis.qpos[qposadr_vis: qposadr_vis + 7] = qpos_vis
                     if target_mocap_id >= 0:
-                        d_vis.mocap_pos[target_mocap_id] = tool_pos
-                    mujoco.mj_forward(m_vis, d_vis)
+                        d_vis.mocap_pos[target_mocap_id] = tool_pos_next if bool(FR3_PHYSICAL_TOOL) and fr3_ik is not None else tool_pos
+
+                    if fr3_ik is not None and not bool(FR3_PHYSICAL_TOOL):
+                        # Run the visual FR3 IK immediately before syncing the
+                        # viewer, after the block/tool visual state has been set.
+                        fr3_last_err = fr3_ik.step(tool_pos, float(DT) * float(LIVE_VIEW_STRIDE))
+                    else:
+                        mujoco.mj_forward(m_vis, d_vis)
 
                     # clear overlays
                     _scene_clear(viewer.user_scn)
@@ -1147,17 +1286,21 @@ def run_push_minimal(
 
                     _scene_add_sphere(
                         viewer.user_scn,
-                        np.asarray(tool_pos, dtype=np.float64),
+                        np.asarray(tool_pos_contact, dtype=np.float64),
                         float(TOOL_RADIUS),
                         np.array([0.2, 0.9, 0.2, 1.0], dtype=np.float32),
                     )
 
                     _scene_add_force_arrow(
                         viewer.user_scn,
-                        np.asarray(tool_pos, dtype=np.float64),
+                        np.asarray(tool_pos_contact, dtype=np.float64),
                         np.asarray(p_lin, dtype=np.float64) / float(DT),
                         np.array([1.0, 0.2, 0.2, 1.0], dtype=np.float32),
                     )
+
+                    if fr3_ik is not None and np.isfinite(fr3_last_err) and (k % max(1, int(200 / max(1, LIVE_VIEW_STRIDE))) == 0):
+                        ee_pos = np.asarray(d_vis.site_xpos[fr3_ik.site_id], dtype=np.float64)
+                        print(f"[fr3] ee_track_err={fr3_last_err:.4f} m ee={ee_pos} target={tool_pos_next if bool(FR3_PHYSICAL_TOOL) else tool_pos}")
 
                     viewer.sync()
 
@@ -1167,8 +1310,8 @@ def run_push_minimal(
                         if now < target:
                             time.sleep(target - now)
                         last_view_t = time.perf_counter()
-                except Exception:
-                    pass
+                except Exception as e:
+                    print(f"[live_view] update error: {type(e).__name__}: {e}")
 
         # log block energies
         t_sim = float(k) * float(DT)
@@ -1181,7 +1324,7 @@ def run_push_minimal(
             inertia_body_diag=np.asarray(sim.inertia_body_diag, dtype=np.float64),
             frozen_flag=int(getattr(simobj, "_frozen", False)),
             g=9.81,
-            z0=0.0,
+            z0=float(support_z),
         )
 
         # gap now
@@ -1445,6 +1588,7 @@ def run_push_minimal(
         dt=float(DT),
         tool_radius=float(TOOL_RADIUS),
         tool_mass=float(TOOL_MASS),
+        support_z=float(support_z),
         mode="astar_nav_no_sdf_translate_plus_yaw",
         xml_path=getattr(sim, "XML_PATH", None),
     )

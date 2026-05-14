@@ -1,11 +1,11 @@
 <mujoco model="table_worldbody">
   <worldbody>
     <!-- Simple table for visualization. -->
-    <!-- NOTE: compsim ground MCP assumes the support plane is z=0.
-         This table is placed so its top is at z=0, but the block/contact model is still the plane.
-         If you later want real table contact, shift everything or change the ground model height. -->
+    <!-- NOTE: table_top is centered at z=0.28 with half-height 0.02,
+         so its top support surface is z=0.30. compsim should use that
+         support plane height when this scene is loaded. -->
     <body name="table" pos="0 0 0">
-      <!-- Top: thickness 0.04, top surface at z=0 -->
+      <!-- Top: thickness 0.04, top surface at z=0.30 -->
       <geom name="table_top" type="box" size="0.3 0.3 0.02" pos="0.55 0.00 0.28"
             rgba="0.55 0.40 0.25 1" contype="0" conaffinity="0"/>
       <geom name="table_leg_fl" type="box" size="0.03 0.03 0.20" pos="0.55 0.00 0.08"

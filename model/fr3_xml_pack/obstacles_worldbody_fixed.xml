@@ -21,6 +21,8 @@
   </body>
 
   <!-- Dynamic obstacles (mocap): avoidance is via complementarity in Python -->
+  <!-- 
+
   <body name="obst0" mocap="true" pos="0.25 0.08 0.4">
     <geom name="obst_geom0" type="sphere" size="0.03"
           rgba="0 0 1 1" contype="0" conaffinity="0"/>
@@ -54,7 +56,7 @@
         <body name="obst6" mocap="true" pos="0.25 -0.0 0.48">
     <geom name="obst_geom6" type="sphere" size="0.03"
           rgba="0 0 1 1" contype="0" conaffinity="0"/>
-  </body>
+  </body>-->
 
 <!-- 
         <body name="obst6" mocap="true" pos="0.25 0.08 0.80">
